@@ -4,9 +4,9 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.firefox import GeckoDriverManager
 import time
 import random
+import os
 
 def vote_in_poll(times=1):
     """
@@ -19,6 +19,7 @@ def vote_in_poll(times=1):
     # Set up Firefox options
     firefox_options = Options()
     firefox_options.add_argument("--headless")
+    firefox_options.binary_location = "/nix/store/pkqh0pddz268mvh55p8x3snpjz3ia8gk-firefox-127.0/bin/firefox"
     
     # Uncomment the line below if you want to run in headless mode (no browser window)
     # firefox_options.add_argument("--headless")
@@ -28,7 +29,7 @@ def vote_in_poll(times=1):
         
         # Set up the driver
         driver = webdriver.Firefox(
-            service=Service(GeckoDriverManager().install()),
+            service=Service("/nix/store/kxz4y57xlv70567x1zbvarmn5ry2asx4-geckodriver-0.34.0/bin/geckodriver"),
             options=firefox_options
         )
         
