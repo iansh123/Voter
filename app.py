@@ -5,6 +5,7 @@ import time
 import json
 from flask import Flask, render_template, request, jsonify, session
 from vote_automation import vote_in_poll
+from proxy_manager import proxy_manager
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -19,7 +20,13 @@ vote_status = {}
 @app.route('/')
 def index():
     """Render the main page"""
-    return render_template('index.html')
+    # Fetch initial proxies
+    proxy_manager.refresh_proxies()
+    
+    # Count the number of available proxies
+    proxy_count = len(proxy_manager.proxies)
+    
+    return render_template('index.html', proxy_count=proxy_count)
 
 @app.route('/start_voting', methods=['POST'])
 def start_voting():

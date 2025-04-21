@@ -4,18 +4,21 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.proxy import Proxy, ProxyType
 import time
 import random
 import logging
 import os
+from proxy_manager import proxy_manager
 
-def vote_in_poll(callback=None):
+def vote_in_poll(callback=None, custom_proxy=None):
     """
     Uses Selenium with Firefox to vote for "Alyssa Weigand, Glen Cove, junior" 
     in the poll at https://poll.fm/15346013
     
     Args:
         callback (function): Optional callback function to report status
+        custom_proxy (str, optional): Custom proxy to use in format ip:port or ip:port:username:password
         
     Returns:
         bool: True if voting was successful, False otherwise
@@ -44,6 +47,69 @@ def vote_in_poll(callback=None):
             callback(message)
     
     log_status("Initializing WebDriver...")
+    
+    # Set up proxy if needed
+    proxy_info = None
+    if custom_proxy:
+        # If a specific proxy was provided, use it
+        log_status(f"Using custom proxy: {custom_proxy.split(':')[0]}")
+        if ':' in custom_proxy:
+            parts = custom_proxy.split(':')
+            if len(parts) == 2:  # ip:port format
+                proxy_info = {
+                    'http': f'http://{custom_proxy}',
+                    'https': f'http://{custom_proxy}'
+                }
+            elif len(parts) == 4:  # ip:port:username:password format
+                ip, port, username, password = parts
+                proxy_info = {
+                    'http': f'http://{username}:{password}@{ip}:{port}',
+                    'https': f'http://{username}:{password}@{ip}:{port}'
+                }
+    else:
+        # Get a proxy from the proxy manager
+        proxy_info = proxy_manager.get_proxy()
+        if proxy_info:
+            proxy_url = proxy_info['http'].replace('http://', '')
+            log_status(f"Using proxy: {proxy_url.split('@')[-1].split(':')[0]}")
+    
+    # Configure Firefox to use the proxy if one was selected
+    if proxy_info:
+        proxy_url = proxy_info['http'].replace('http://', '')
+        
+        # Different format if proxy has auth
+        if '@' in proxy_url:
+            auth, addr = proxy_url.split('@')
+            username, password = auth.split(':')
+            ip, port = addr.split(':')
+            
+            firefox_options.set_preference("network.proxy.type", 1)
+            firefox_options.set_preference("network.proxy.http", ip)
+            firefox_options.set_preference("network.proxy.http_port", int(port))
+            firefox_options.set_preference("network.proxy.ssl", ip) 
+            firefox_options.set_preference("network.proxy.ssl_port", int(port))
+            firefox_options.set_preference("network.proxy.socks", ip)
+            firefox_options.set_preference("network.proxy.socks_port", int(port))
+            firefox_options.set_preference("network.proxy.ftp", ip)
+            firefox_options.set_preference("network.proxy.ftp_port", int(port))
+            firefox_options.set_preference("network.proxy.no_proxies_on", "localhost,127.0.0.1")
+            firefox_options.set_preference("network.proxy.share_proxy_settings", True)
+            firefox_options.set_preference("network.proxy.username", username)
+            firefox_options.set_preference("network.proxy.password", password)
+        else:
+            # No auth proxy
+            ip, port = proxy_url.split(':')
+            firefox_options.set_preference("network.proxy.type", 1)
+            firefox_options.set_preference("network.proxy.http", ip)
+            firefox_options.set_preference("network.proxy.http_port", int(port))
+            firefox_options.set_preference("network.proxy.ssl", ip)
+            firefox_options.set_preference("network.proxy.ssl_port", int(port))
+            firefox_options.set_preference("network.proxy.socks", ip)
+            firefox_options.set_preference("network.proxy.socks_port", int(port))
+            firefox_options.set_preference("network.proxy.ftp", ip)
+            firefox_options.set_preference("network.proxy.ftp_port", int(port))
+            firefox_options.set_preference("network.proxy.no_proxies_on", "localhost,127.0.0.1")
+            firefox_options.set_preference("network.proxy.share_proxy_settings", True)
     
     # Set up the driver
     driver = None
