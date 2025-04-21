@@ -15,6 +15,20 @@
                         <div class="form-text">Enter how many times the bot should attempt to vote (recommended: 1-20)</div>
                     </div>
                     
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="use_proxies" name="use_proxies" checked>
+                            <label class="form-check-label" for="use_proxies">Use Proxies <span class="badge bg-secondary">{{ proxy_count }} available</span></label>
+                        </div>
+                        <div class="form-text">Using proxies helps avoid IP blocking and makes voting more effective</div>
+                    </div>
+                    
+                    <div class="mb-3" id="custom-proxy-section">
+                        <label for="custom_proxies" class="form-label">Custom Proxies (Optional)</label>
+                        <textarea class="form-control" id="custom_proxies" name="custom_proxies" rows="3" placeholder="Enter one proxy per line in format: ip:port or ip:port:username:password"></textarea>
+                        <div class="form-text">If you have your own proxies, enter them here, one per line</div>
+                    </div>
+                    
                     <div class="d-grid gap-2">
                         <button type="submit" class="btn btn-primary" id="start-btn">
                             <i class="fas fa-play me-2"></i>Start Voting
@@ -81,6 +95,8 @@
                     <li>Runs headless (no visible browser windows)</li>
                     <li>Handles delays between voting attempts</li>
                     <li>Provides real-time progress updates</li>
+                    <li>Uses rotating proxies to avoid IP blocking</li>
+                    <li>Supports concurrent voting with multiple instances</li>
                 </ul>
                 <div class="alert alert-info">
                     <i class="fas fa-exclamation-triangle me-2"></i> Note: Running too many votes in a short time might trigger rate limiting or IP blocking by the poll website.

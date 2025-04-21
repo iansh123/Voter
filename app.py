@@ -38,6 +38,21 @@ def start_voting():
         if num_votes <= 0:
             return jsonify({'status': 'error', 'message': 'Please enter a positive number of votes'}), 400
         
+        # Check if proxies should be used
+        use_proxies = request.form.get('use_proxies') == 'on'
+        
+        # Get custom proxies if provided
+        custom_proxies = []
+        custom_proxies_text = request.form.get('custom_proxies', '').strip()
+        if custom_proxies_text:
+            custom_proxies = [p.strip() for p in custom_proxies_text.split('\n') if p.strip()]
+            
+            # Load the custom proxies into the proxy manager if using proxies
+            if use_proxies and custom_proxies:
+                proxy_manager.load_custom_proxies(custom_proxies)
+                # Force refresh of proxies to use the custom ones
+                proxy_manager.refresh_proxies(force=True)
+        
         # Generate a unique session ID for this voting session
         session_id = str(int(time.time()))
         session['voting_session_id'] = session_id
@@ -50,7 +65,8 @@ def start_voting():
             'log_messages': [],
             'is_running': True,
             'success_count': 0,
-            'error_count': 0
+            'error_count': 0,
+            'use_proxies': use_proxies
         }
         
         # Start voting in a separate thread
@@ -61,9 +77,16 @@ def start_voting():
         voting_thread.daemon = True
         voting_thread.start()
         
+        proxy_message = ""
+        if use_proxies:
+            proxy_count = len(proxy_manager.proxies)
+            proxy_message = f" using {proxy_count} proxies"
+            if custom_proxies:
+                proxy_message += f" ({len(custom_proxies)} custom)"
+        
         return jsonify({
             'status': 'success', 
-            'message': f'Started voting process for {num_votes} votes',
+            'message': f'Started voting process for {num_votes} votes{proxy_message}',
             'session_id': session_id
         })
     
@@ -120,10 +143,21 @@ def vote_task(session_id, vote_num, total_votes):
         # Update status for this vote
         update_status(session_id, f"Starting vote attempt {vote_num+1} of {total_votes}...")
         
+        # Check if proxies should be used for this session
+        use_proxy = vote_status[session_id].get('use_proxies', False)
+        
         # Call the voting function with callback for updates
-        success = vote_in_poll(
-            callback=lambda msg: update_status(session_id, f"Vote {vote_num+1}: {msg}")
-        )
+        if use_proxy:
+            # Get next proxy from manager if using proxies
+            success = vote_in_poll(
+                callback=lambda msg: update_status(session_id, f"Vote {vote_num+1}: {msg}")
+            )
+        else:
+            # Don't use proxy
+            success = vote_in_poll(
+                callback=lambda msg: update_status(session_id, f"Vote {vote_num+1}: {msg}"),
+                custom_proxy=None  # Explicitly disable proxy
+            )
         
         # Update status with the result
         if success:

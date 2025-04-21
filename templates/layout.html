@@ -3,28 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Online Poll Voting Bot</title>
-    <!-- Bootstrap CSS -->
+    <title>Automated Voting Bot</title>
     <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
-    <!-- Font Awesome for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
         .log-container {
             height: 300px;
             overflow-y: auto;
-            background-color: rgba(0, 0, 0, 0.1);
-            border-radius: 5px;
+            background-color: #2a2a2a;
+            border-radius: 4px;
             padding: 10px;
-            font-family: monospace;
-        }
-        .log-message {
-            margin: 2px 0;
-            padding: 2px 5px;
-            border-radius: 3px;
-        }
-        .card {
             margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 0.85rem;
         }
+        
+        .log-message {
+            margin-bottom: 4px;
+            line-height: 1.4;
+            border-bottom: 1px solid #3a3a3a;
+            padding-bottom: 4px;
+        }
+        
+        .card {
+            margin-bottom: 1.5rem;
+        }
+        
+        .card-header {
+            background-color: #2d2d2d;
+        }
+        
         body {
             padding-top: 20px;
             padding-bottom: 40px;
@@ -34,25 +43,22 @@
 <body>
     <div class="container">
         <header class="mb-4">
-            <h1 class="text-center"><i class="fas fa-vote-yea me-2"></i> Automated Poll Voting Bot</h1>
-            <p class="text-center text-muted">A tool to automate voting for "Alyssa Weigand, Glen Cove, junior" in an online poll</p>
+            <div class="d-flex align-items-center">
+                <h1 class="mb-0"><i class="fas fa-robot me-3"></i>Poll Automation Tool</h1>
+            </div>
+            <p class="lead text-muted">Automated voting for Alyssa Weigand in poll.fm contests</p>
         </header>
         
-        <div class="content">
+        <main>
             {% block content %}{% endblock %}
-        </div>
+        </main>
         
         <footer class="mt-5 text-center text-muted">
-            <p><small>&copy; 2023 Poll Voting Bot | <i class="fas fa-robot me-1"></i> Powered by Selenium</small></p>
+            <p>&copy; 2025 Poll Automation Tool</p>
         </footer>
     </div>
     
-    <!-- Bootstrap JS Bundle with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Custom Script -->
-    <script src="/static/js/script.js"></script>
-    
-    {% block scripts %}{% endblock %}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>
