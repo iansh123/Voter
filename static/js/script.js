@@ -111,14 +111,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const percentage = (completedVotes / totalVotes) * 100;
             
             progressBar.style.width = `${percentage}%`;
-            
-            // Show batch information if available
-            if (data.total_batches) {
-                voteStats.textContent = `${completedVotes}/${totalVotes} votes (Batch ${data.current_batch}/${data.total_batches})`;
-            } else {
-                voteStats.textContent = `${completedVotes}/${totalVotes} votes`;
-            }
-            
+            voteStats.textContent = `${completedVotes}/${totalVotes} votes`;
             progressText.textContent = data.current_status;
             
             // Update success/error counts
