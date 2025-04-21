@@ -2,7 +2,6 @@ from selenium import webdriver
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
@@ -101,163 +100,22 @@ def vote_in_poll(callback=None):
             time.sleep(2)
             
             try:
-                # Wait a bit longer for CAPTCHA to fully load
-                time.sleep(3)
-                
-                # Try to find the math problem using multiple approaches
-                math_problem = None
-                
-                # First try finding the element
-                element = None
-                
-                # Try different potential CAPTCHA element locations
-                possible_selectors = [
-                    "/html/body/form/div[1]/span/p",  # Original selector
-                    "//form//p[contains(text(), '=')]",  # Any p containing equals sign in form
-                    "//p[contains(text(), '+') or contains(text(), '-') or contains(text(), '*')]",  # Math operators
-                    "//span[contains(@class, 'captcha')]/p",  # Captcha class with p
-                    "//div[contains(@class, 'captcha')]//p",  # Div with captcha class and p child
-                    "//div[contains(@id, 'captcha')]//p",  # Div with captcha id and p child
-                    "//form//div/p",  # Any p in a div under form
-                    "//form//span/p"  # Any p in a span under form
-                ]
-                
-                # Take screenshot to debug issues
-                try:
-                    driver.save_screenshot("/tmp/captcha_screen.png")
-                    log_status("Saved screenshot to help debug CAPTCHA issues")
-                except:
-                    pass
-                
-                for selector in possible_selectors:
-                    try:
-                        elements = driver.find_elements(By.XPATH, selector)
-                        for element in elements:
-                            if element and element.text and any(x in element.text for x in ['=', '+', '-', '*']):
-                                log_status(f"Found CAPTCHA using selector: {selector}")
-                                # Extract math problem from element
-                                math_text = element.text.strip()
-                                if '=' in math_text:
-                                    math_problem = math_text.split('=')[0].strip()
-                                else:
-                                    math_problem = math_text
-                                break
-                        if math_problem:
-                            break
-                    except:
-                        continue
-                
-                # If still not found, try scanning all text
-                if not math_problem:
-                    log_status("Using body text scan method to find CAPTCHA")
-                    try:
-                        # Try finding by scanning all text on page
-                        page_text = driver.find_element(By.TAG_NAME, "body").text
-                        lines = page_text.split('\n')
-                        
-                        # Log page text for debugging
-                        log_status(f"Page text: {page_text[:200]}...")
-                        
-                        for line in lines:
-                            if (('=' in line) and any(op in line for op in ['+', '-', '*'])) or \
-                               (any(x in line.lower() for x in ['solve', 'math', 'captcha', 'answer']) and \
-                               any(op in line for op in ['+', '-', '*'])):
-                                log_status(f"Found CAPTCHA in page text: {line}")
-                                math_text = line.strip()
-                                # Extract just the equation
-                                if '=' in math_text:
-                                    math_problem = math_text.split('=')[0].strip()
-                                else:
-                                    math_problem = math_text
-                                break
-                    except:
-                        pass
-                        
-                # If still not found, use a hardcoded default (simple math problem as fallback)
-                if not math_problem:
-                    log_status("CAPTCHA not found with any method, using fallback")
-                    math_problem = "2 + 2"  # Use a simple math as fallback
-                    
-                # Make sure we have a math problem
-                if not math_problem:
-                    raise Exception("Could not detect any CAPTCHA math problem")
-                
+                # Find the math problem
+                element = driver.find_element(By.XPATH, "/html/body/form/div[1]/span/p")
+                math_problem = element.text[:-2]  # Remove the "= " at the end
                 log_status(f"CAPTCHA math problem: {math_problem}")
-                
-                # Clean up the math problem (remove any non-math characters)
-                import re
-                math_problem = re.sub(r'[^0-9+\-*/()]', '', math_problem)
                 
                 # Solve the math problem
                 math_answer = eval(math_problem)
                 log_status(f"CAPTCHA solution: {math_answer}")
                 
-                # Enter the answer - try multiple potential field selectors
-                answer_field = None
-                answer_field_selectors = [
-                    (By.ID, "answer_15346013"),                      # Original ID
-                    (By.XPATH, "//input[contains(@id, 'answer')]"),  # Any input with 'answer' in ID
-                    (By.XPATH, "//form//input[@type='text']"),       # Any text input in form
-                    (By.XPATH, "//input[@type='text' or @type='number']")  # Any text/number input
-                ]
+                # Enter the answer
+                answer_field = driver.find_element(By.ID, "answer_15346013")
+                answer_field.send_keys(str(math_answer))
                 
-                for selector_method, selector in answer_field_selectors:
-                    try:
-                        answer_field = driver.find_element(selector_method, selector)
-                        if answer_field:
-                            log_status(f"Found answer field using: {selector}")
-                            break
-                    except:
-                        continue
-                
-                if not answer_field:
-                    log_status("Could not find the CAPTCHA answer field, trying fallback method")
-                    # Try tab navigation to the field
-                    try:
-                        body = driver.find_element(By.TAG_NAME, "body")
-                        body.send_keys(Keys.TAB)  # Tab to likely reach the input field
-                        answer_field = driver.switch_to.active_element
-                    except:
-                        pass
-                
-                if answer_field:
-                    answer_field.clear()  # Clear any existing text
-                    answer_field.send_keys(str(math_answer))
-                else:
-                    raise Exception("Could not locate the CAPTCHA answer field")
-                
-                # Submit the CAPTCHA answer - try multiple button selectors
-                submit_button = None
-                submit_selectors = [
-                    (By.CLASS_NAME, "button-lrg"),
-                    (By.XPATH, "//button[contains(@class, 'button')]"),
-                    (By.XPATH, "//input[@type='submit']"),
-                    (By.XPATH, "//button[@type='submit']"),
-                    (By.XPATH, "//button"),
-                    (By.XPATH, "//input[@type='button']")
-                ]
-                
-                for selector_method, selector in submit_selectors:
-                    try:
-                        submit_button = wait.until(EC.element_to_be_clickable((selector_method, selector)))
-                        if submit_button:
-                            log_status(f"Found submit button using: {selector}")
-                            break
-                    except:
-                        continue
-                
-                if not submit_button:
-                    log_status("Could not find the submit button, trying Enter key")
-                    try:
-                        # Try pressing Enter key on the answer field
-                        if answer_field:
-                            answer_field.send_keys(Keys.RETURN)
-                            log_status("Pressed Enter key to submit")
-                    except:
-                        raise Exception("Could not find any way to submit the answer")
-                else:
-                    # Use JavaScript click which is more reliable
-                    driver.execute_script("arguments[0].click();", submit_button)
+                # Submit the CAPTCHA answer
+                submit_button = wait.until(EC.element_to_be_clickable((By.CLASS_NAME, "button-lrg")))
+                driver.execute_script("arguments[0].click();", submit_button)
                 log_status("CAPTCHA answer submitted")
                 
                 # Reduced wait time for confirmation to speed up the process
