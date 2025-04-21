@@ -3,6 +3,8 @@ import logging
 import threading
 import time
 import json
+import math
+import uuid
 from flask import Flask, render_template, request, jsonify, session
 from vote_automation import vote_in_poll
 
@@ -32,31 +34,38 @@ def start_voting():
             return jsonify({'status': 'error', 'message': 'Please enter a positive number of votes'}), 400
         
         # Generate a unique session ID for this voting session
-        session_id = str(int(time.time()))
+        session_id = str(uuid.uuid4())
         session['voting_session_id'] = session_id
+        
+        # Calculate batch information for large vote counts
+        batch_size = 100  # Process votes in batches of 100
+        total_batches = math.ceil(num_votes / batch_size)
         
         # Initialize status for this session
         vote_status[session_id] = {
             'total_votes': num_votes,
             'completed_votes': 0,
-            'current_status': 'Starting...',
+            'current_status': f'Starting vote process with {total_batches} batches...',
             'log_messages': [],
             'is_running': True,
             'success_count': 0,
-            'error_count': 0
+            'error_count': 0,
+            'batch_size': batch_size,
+            'total_batches': total_batches,
+            'current_batch': 1
         }
         
         # Start voting in a separate thread
         voting_thread = threading.Thread(
-            target=run_voting_process,
-            args=(session_id, num_votes)
+            target=batch_voting_manager,
+            args=(session_id, num_votes, batch_size)
         )
         voting_thread.daemon = True
         voting_thread.start()
         
         return jsonify({
             'status': 'success', 
-            'message': f'Started voting process for {num_votes} votes',
+            'message': f'Started voting process for {num_votes} votes (in {total_batches} batches)',
             'session_id': session_id
         })
     
@@ -137,26 +146,42 @@ def vote_task(session_id, vote_num, total_votes):
         logging.error(f"Error in voting task {vote_num+1}: {str(e)}")
         update_status(session_id, f"Error in vote {vote_num+1}: {str(e)}", False)
 
-def run_voting_process(session_id, num_votes):
+def run_voting_process(session_id, start_index, num_votes, batch_number=1, total_batches=1):
     """Run the voting process with multiple concurrent votes"""
     try:
         # Determine the number of concurrent threads to use
-        # We'll use a maximum of 5 concurrent threads or the number of votes, whichever is smaller
-        max_concurrent = min(5, num_votes)
+        # We'll use a maximum of 3 concurrent threads to avoid freezing and server issues
+        max_concurrent = min(3, num_votes)
         
-        update_status(session_id, f"Starting voting process with up to {max_concurrent} concurrent votes...")
+        update_status(session_id, f"Starting batch {batch_number}/{total_batches} with up to {max_concurrent} concurrent votes...")
         
         # Create and start threads for each vote
         threads = []
+        alive_check_interval = 5  # Check if threads are alive every 5 votes
+        
         for i in range(num_votes):
             # Check if the process should be stopped
             if session_id not in vote_status or not vote_status[session_id]['is_running']:
+                update_status(session_id, "Voting process stopped by user")
                 break
+                
+            # Check for any frozen threads and clean them up
+            if i % alive_check_interval == 0 and threads:
+                new_threads = []
+                for t in threads:
+                    if t.is_alive():
+                        new_threads.append(t)
+                    else:
+                        logging.debug(f"Thread was not responsive, replacing it")
+                threads = new_threads
+            
+            # Global vote number (across all batches)
+            global_vote_num = start_index + i
             
             # Create a thread for this vote
             vote_thread = threading.Thread(
                 target=vote_task,
-                args=(session_id, i, num_votes)
+                args=(session_id, global_vote_num, vote_status[session_id]['total_votes'])
             )
             vote_thread.daemon = True
             threads.append(vote_thread)
@@ -167,19 +192,79 @@ def run_voting_process(session_id, num_votes):
             # If we've reached the max concurrent threads or this is the last vote,
             # wait for the oldest thread to complete before starting more
             if len(threads) >= max_concurrent:
-                # Wait for the oldest thread to complete (first in the list)
-                threads[0].join()
-                threads.pop(0)
+                try:
+                    # Wait for the oldest thread to complete with a timeout
+                    threads[0].join(timeout=60)  # 60 second timeout to prevent freezing
+                    
+                    # If thread is still alive after timeout, leave it but don't wait for it
+                    if not threads[0].is_alive():
+                        threads.pop(0)
+                    else:
+                        logging.warning("Thread timed out, continuing with new threads")
+                        # Keep track of it but don't wait for it again
+                        threads.pop(0)
+                except Exception as thread_err:
+                    logging.error(f"Error waiting for thread: {str(thread_err)}")
             
             # Add a small delay between starting threads to avoid overwhelming the server
             time.sleep(0.5)
         
-        # Wait for any remaining threads to complete
+        # Wait for remaining threads with a timeout
         for thread in threads:
-            thread.join()
+            try:
+                thread.join(timeout=30)  # 30 second timeout per thread
+            except Exception as join_err:
+                logging.error(f"Error joining thread: {str(join_err)}")
+        
+        update_status(session_id, f"Completed batch {batch_number}/{total_batches}")
             
     except Exception as e:
         logging.error(f"Error in voting process: {str(e)}")
+        if session_id in vote_status:
+            update_status(session_id, f"Error in batch {batch_number}: {str(e)}", False)
+            
+    return True  # Return True to indicate the batch completed (even with errors)
+
+def batch_voting_manager(session_id, total_votes, batch_size=100):
+    """Manage voting in batches to handle large number of votes"""
+    try:
+        # Calculate the number of batches
+        total_batches = math.ceil(total_votes / batch_size)
+        update_status(session_id, f"Starting {total_votes} votes in {total_batches} batches of {batch_size}")
+        
+        # Process each batch
+        for batch_num in range(1, total_batches + 1):
+            # Check if the process should be stopped
+            if session_id not in vote_status or not vote_status[session_id]['is_running']:
+                break
+                
+            # Calculate the start index and number of votes for this batch
+            start_index = (batch_num - 1) * batch_size
+            votes_in_batch = min(batch_size, total_votes - start_index)
+            
+            # Update status with batch information
+            vote_status[session_id]['current_batch'] = batch_num
+            update_status(session_id, f"Starting batch {batch_num}/{total_batches} with {votes_in_batch} votes...")
+            
+            # Run this batch
+            batch_result = run_voting_process(
+                session_id, 
+                start_index, 
+                votes_in_batch, 
+                batch_num, 
+                total_batches
+            )
+            
+            # Short delay between batches
+            time.sleep(5)
+            
+        # Mark the session as completed
+        if session_id in vote_status and vote_status[session_id]['is_running']:
+            vote_status[session_id]['is_running'] = False
+            vote_status[session_id]['current_status'] = "All batches completed"
+            
+    except Exception as e:
+        logging.error(f"Error in batch voting manager: {str(e)}")
         if session_id in vote_status:
             vote_status[session_id]['is_running'] = False
             vote_status[session_id]['current_status'] = f"Error: {str(e)}"

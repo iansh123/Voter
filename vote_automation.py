@@ -20,12 +20,12 @@ def vote_in_poll(callback=None):
     Returns:
         bool: True if voting was successful, False otherwise
     """
-    # Set up Firefox options with optimized settings for speed
+    # Set up Firefox options with extreme optimizations for speed and stability
     firefox_options = Options()
     firefox_options.add_argument("--headless")
     firefox_options.binary_location = "/nix/store/pkqh0pddz268mvh55p8x3snpjz3ia8gk-firefox-127.0/bin/firefox"
     
-    # Performance optimization settings
+    # Critical performance optimizations to prevent freezing
     firefox_options.set_preference("dom.disable_open_during_load", True)
     firefox_options.set_preference("browser.tabs.remote.autostart", False)
     firefox_options.set_preference("media.autoplay.default", 5)  # Block autoplay
@@ -33,6 +33,13 @@ def vote_in_poll(callback=None):
     firefox_options.set_preference("browser.sessionhistory.max_entries", 1)  # Minimize history
     firefox_options.set_preference("browser.startup.page", 0)  # Don't restore previous session
     firefox_options.set_preference("permissions.default.image", 2)  # Block images to speed up loading
+    firefox_options.set_preference("network.http.connection-timeout", 10)  # Shorter connection timeout
+    firefox_options.set_preference("dom.max_script_run_time", 5)  # Shorter script timeout
+    firefox_options.set_preference("dom.disable_beforeunload", True)  # Disable beforeunload events
+    firefox_options.set_preference("browser.cache.memory.capacity", 4096)  # Limit memory cache
+    firefox_options.set_preference("javascript.enabled", False)  # Disable JavaScript for extreme speed
+    firefox_options.set_preference("network.prefetch-next", False)  # Disable link prefetching
+    firefox_options.set_preference("network.dns.disablePrefetch", True)  # Disable DNS prefetching
     
     # Initialize success flag
     success = False
@@ -119,15 +126,17 @@ def vote_in_poll(callback=None):
                 log_status("Vote appears to be successful (CAPTCHA solved and submitted)")
                 success = True
                 
-                # Try to find any evidence of success or thank you message
+                # Close the browser immediately to free up resources and avoid memory leaks
                 try:
-                    # Look for any common success indicators
-                    if driver.page_source and any(x in driver.page_source.lower() for x in ['thank you', 'success', 'recorded', 'received']):
-                        log_status("Found confirmation message on page!")
-                    else:
-                        log_status("No explicit confirmation found, but vote was submitted")
-                except Exception as e:
-                    log_status(f"Error checking for confirmation: {str(e)}")
+                    driver.quit()
+                    driver = None
+                    log_status("Browser closed early to save resources")
+                except:
+                    pass
+                
+                # Since we already closed the browser to save resources,
+                # we won't try to check the page source anymore
+                log_status("Vote considered successful based on CAPTCHA submission")
             except Exception as e:
                 log_status(f"Error during CAPTCHA solving: {str(e)}")
         else:
