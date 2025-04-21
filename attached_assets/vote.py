@@ -98,8 +98,16 @@ def vote_in_poll(times=1):
     print("All voting attempts completed!")
 
 if __name__ == "__main__":
+    import sys
     try:
-        num_votes = int(input("How many times would you like to vote? "))
+        # Check if a command line argument is provided
+        if len(sys.argv) > 1:
+            num_votes = int(sys.argv[1])
+            print(f"Running with {num_votes} votes from command line argument")
+        else:
+            # Fall back to input if no argument is provided
+            num_votes = int(input("How many times would you like to vote? "))
+        
         vote_in_poll(num_votes)
     except ValueError:
         print("Please enter a valid number.")
