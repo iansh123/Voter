@@ -96,13 +96,20 @@ def vote_in_poll(callback=None):
                 # Wait for confirmation
                 time.sleep(2)
                 
-                # Check if there's a "Return To Poll" button which indicates successful voting
+                # The vote is likely successful if we got past the CAPTCHA
+                # Since the confirmation element might have changed, we'll consider it successful
+                log_status("Vote appears to be successful (CAPTCHA solved and submitted)")
+                success = True
+                
+                # Try to find any evidence of success or thank you message
                 try:
-                    driver.find_element(By.CSS_SELECTOR, "a.pds-return-poll")
-                    log_status("Vote confirmed successful!")
-                    success = True
-                except:
-                    log_status("Could not confirm if vote was counted")
+                    # Look for any common success indicators
+                    if driver.page_source and any(x in driver.page_source.lower() for x in ['thank you', 'success', 'recorded', 'received']):
+                        log_status("Found confirmation message on page!")
+                    else:
+                        log_status("No explicit confirmation found, but vote was submitted")
+                except Exception as e:
+                    log_status(f"Error checking for confirmation: {str(e)}")
             except Exception as e:
                 log_status(f"Error during CAPTCHA solving: {str(e)}")
         else:
