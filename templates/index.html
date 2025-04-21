@@ -1,0 +1,92 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title h5 mb-0"><i class="fas fa-cog me-2"></i>Bot Configuration</h2>
+            </div>
+            <div class="card-body">
+                <form id="voting-form">
+                    <div class="mb-3">
+                        <label for="num_votes" class="form-label">Number of Votes</label>
+                        <input type="number" class="form-control" id="num_votes" name="num_votes" min="1" max="100" value="1" required>
+                        <div class="form-text">Enter how many times the bot should attempt to vote (recommended: 1-20)</div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary" id="start-btn">
+                            <i class="fas fa-play me-2"></i>Start Voting
+                        </button>
+                        <button type="button" class="btn btn-danger" id="stop-btn" disabled>
+                            <i class="fas fa-stop me-2"></i>Stop Process
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card" id="status-card" style="display: none;">
+            <div class="card-header">
+                <h2 class="card-title h5 mb-0"><i class="fas fa-tasks me-2"></i>Voting Progress</h2>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span id="progress-text">Initializing...</span>
+                        <span id="vote-stats">0/0 votes</span>
+                    </div>
+                    <div class="progress">
+                        <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col">
+                        <div class="card text-bg-success">
+                            <div class="card-body text-center p-2">
+                                <h5 class="card-title mb-0">Successful</h5>
+                                <p class="card-text fs-4" id="success-count">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card text-bg-danger">
+                            <div class="card-body text-center p-2">
+                                <h5 class="card-title mb-0">Failed</h5>
+                                <p class="card-text fs-4" id="error-count">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <h5><i class="fas fa-terminal me-2"></i>Activity Log</h5>
+                <div class="log-container" id="log-container">
+                    <div class="log-message">Waiting to start...</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title h5 mb-0"><i class="fas fa-info-circle me-2"></i>About This Tool</h2>
+            </div>
+            <div class="card-body">
+                <p>This tool automates voting for "Alyssa Weigand, Glen Cove, junior" in an online poll using Selenium WebDriver.</p>
+                <h5>Features:</h5>
+                <ul>
+                    <li>Automatically selects the correct candidate</li>
+                    <li>Solves CAPTCHA math problems</li>
+                    <li>Runs headless (no visible browser windows)</li>
+                    <li>Handles delays between voting attempts</li>
+                    <li>Provides real-time progress updates</li>
+                </ul>
+                <div class="alert alert-info">
+                    <i class="fas fa-exclamation-triangle me-2"></i> Note: Running too many votes in a short time might trigger rate limiting or IP blocking by the poll website.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
