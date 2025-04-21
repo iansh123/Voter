@@ -107,40 +107,76 @@ def update_status(session_id, message, success=None):
             else:
                 vote_status[session_id]['error_count'] += 1
 
-def run_voting_process(session_id, num_votes):
-    """Run the voting process and update status"""
+def vote_task(session_id, vote_num, total_votes):
+    """Run a single voting task in a thread"""
     try:
+        # Update status for this vote
+        update_status(session_id, f"Starting vote attempt {vote_num+1} of {total_votes}...")
+        
+        # Call the voting function with callback for updates
+        success = vote_in_poll(
+            callback=lambda msg: update_status(session_id, f"Vote {vote_num+1}: {msg}")
+        )
+        
+        # Update status with the result
+        if success:
+            update_status(session_id, f"Vote {vote_num+1} completed successfully!", True)
+        else:
+            update_status(session_id, f"Vote {vote_num+1} failed or could not be confirmed", False)
+        
+        # Update completed votes
+        with threading.Lock():
+            vote_status[session_id]['completed_votes'] += 1
+            
+            # Check if all votes are complete
+            if vote_status[session_id]['completed_votes'] >= vote_status[session_id]['total_votes']:
+                vote_status[session_id]['is_running'] = False
+                vote_status[session_id]['current_status'] = "Voting process completed"
+    
+    except Exception as e:
+        logging.error(f"Error in voting task {vote_num+1}: {str(e)}")
+        update_status(session_id, f"Error in vote {vote_num+1}: {str(e)}", False)
+
+def run_voting_process(session_id, num_votes):
+    """Run the voting process with multiple concurrent votes"""
+    try:
+        # Determine the number of concurrent threads to use
+        # We'll use a maximum of 5 concurrent threads or the number of votes, whichever is smaller
+        max_concurrent = min(5, num_votes)
+        
+        update_status(session_id, f"Starting voting process with up to {max_concurrent} concurrent votes...")
+        
+        # Create and start threads for each vote
+        threads = []
         for i in range(num_votes):
             # Check if the process should be stopped
             if session_id not in vote_status or not vote_status[session_id]['is_running']:
                 break
-                
-            update_status(session_id, f"Starting vote attempt {i+1} of {num_votes}...")
             
-            # Call the voting function with callback for updates
-            success = vote_in_poll(
-                callback=lambda msg: update_status(session_id, msg)
+            # Create a thread for this vote
+            vote_thread = threading.Thread(
+                target=vote_task,
+                args=(session_id, i, num_votes)
             )
+            vote_thread.daemon = True
+            threads.append(vote_thread)
             
-            # Update status with the result
-            if success:
-                update_status(session_id, f"Vote {i+1} completed successfully!", True)
-            else:
-                update_status(session_id, f"Vote {i+1} failed or could not be confirmed", False)
+            # Start the thread
+            vote_thread.start()
             
-            # Update completed votes
-            vote_status[session_id]['completed_votes'] = i + 1
+            # If we've reached the max concurrent threads or this is the last vote,
+            # wait for the oldest thread to complete before starting more
+            if len(threads) >= max_concurrent:
+                # Wait for the oldest thread to complete (first in the list)
+                threads[0].join()
+                threads.pop(0)
             
-            # Add a delay between votes if not the last vote and still running
-            if i < num_votes - 1 and session_id in vote_status and vote_status[session_id]['is_running']:
-                delay = min(5 + (i * 0.5), 15)  # Increase delay slightly with each vote, max 15 seconds
-                update_status(session_id, f"Waiting {delay:.1f} seconds before next vote...")
-                time.sleep(delay)
+            # Add a small delay between starting threads to avoid overwhelming the server
+            time.sleep(0.5)
         
-        # Update final status
-        if session_id in vote_status:
-            vote_status[session_id]['is_running'] = False
-            vote_status[session_id]['current_status'] = "Voting process completed"
+        # Wait for any remaining threads to complete
+        for thread in threads:
+            thread.join()
             
     except Exception as e:
         logging.error(f"Error in voting process: {str(e)}")

@@ -20,10 +20,19 @@ def vote_in_poll(callback=None):
     Returns:
         bool: True if voting was successful, False otherwise
     """
-    # Set up Firefox options
+    # Set up Firefox options with optimized settings for speed
     firefox_options = Options()
     firefox_options.add_argument("--headless")
     firefox_options.binary_location = "/nix/store/pkqh0pddz268mvh55p8x3snpjz3ia8gk-firefox-127.0/bin/firefox"
+    
+    # Performance optimization settings
+    firefox_options.set_preference("dom.disable_open_during_load", True)
+    firefox_options.set_preference("browser.tabs.remote.autostart", False)
+    firefox_options.set_preference("media.autoplay.default", 5)  # Block autoplay
+    firefox_options.set_preference("browser.cache.disk.enable", False)  # Disable disk cache
+    firefox_options.set_preference("browser.sessionhistory.max_entries", 1)  # Minimize history
+    firefox_options.set_preference("browser.startup.page", 0)  # Don't restore previous session
+    firefox_options.set_preference("permissions.default.image", 2)  # Block images to speed up loading
     
     # Initialize success flag
     success = False
@@ -48,18 +57,27 @@ def vote_in_poll(callback=None):
         # Navigate to the poll
         driver.get("https://poll.fm/15346013")
         
-        # Wait for the poll to load
-        wait = WebDriverWait(driver, 10)
+        # Wait for the poll to load with reduced timeout for faster operation
+        wait = WebDriverWait(driver, 5)
         
         log_status("Looking for Alyssa Weigand's option...")
-        # Find all radio button options and look for Alyssa Weigand
-        radio_options = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.pds-answer-group")))
-        
+        # Try different approaches to find the option faster
         alyssa_option = None
-        for option in radio_options:
-            if "Alyssa Weigand, Glen Cove, junior" in option.text:
-                alyssa_option = option.find_element(By.CSS_SELECTOR, "input[type='radio']")
-                break
+        try:
+            # Try direct xpath first (faster if it works)
+            alyssa_option = wait.until(EC.presence_of_element_located(
+                (By.XPATH, "//span[contains(text(), 'Alyssa Weigand')]/../..//input[@type='radio']")
+            ))
+            log_status("Found option using direct selector (fast method)")
+        except Exception:
+            # Fall back to the original method
+            log_status("Using fallback method to find option")
+            radio_options = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.pds-answer-group")))
+            
+            for option in radio_options:
+                if "Alyssa Weigand, Glen Cove, junior" in option.text:
+                    alyssa_option = option.find_element(By.CSS_SELECTOR, "input[type='radio']")
+                    break
         
         if alyssa_option:
             # Click the radio button for Alyssa
@@ -93,8 +111,8 @@ def vote_in_poll(callback=None):
                 driver.execute_script("arguments[0].click();", submit_button)
                 log_status("CAPTCHA answer submitted")
                 
-                # Wait for confirmation
-                time.sleep(2)
+                # Reduced wait time for confirmation to speed up the process
+                time.sleep(1)
                 
                 # The vote is likely successful if we got past the CAPTCHA
                 # Since the confirmation element might have changed, we'll consider it successful
